@@ -20,6 +20,5 @@ class OverhauledChatComponent : ChatComponent {
 
     companion object {
         private val LOGGER = logger("chat")
-        val MAX
     }
 }
