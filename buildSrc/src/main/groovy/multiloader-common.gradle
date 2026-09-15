@@ -1,0 +1,145 @@
+plugins {
+    id 'maven-publish'
+    id 'java-library'
+    id 'org.jetbrains.kotlin.jvm'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(java_version)
+}
+
+base {
+    archivesName = "${mod_id}-${project.name}-${minecraft_version}"
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+    maven { url = "https://raw.githubusercontent.com/Fuzss/modresources/main/maven/" }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Sponge'
+                url = 'https://repo.spongepowered.org/repository/maven-public'
+            }
+        }
+        filter { includeGroupAndSubgroups('org.spongepowered') }
+    }
+    exclusiveContent {
+        forRepositories(
+                maven {
+                    name = 'ParchmentMC'
+                    url = 'https://maven.parchmentmc.org/'
+                },
+                maven {
+                    name = "NeoForge"
+                    url = 'https://maven.neoforged.net/releases'
+                }
+        )
+        filter { includeGroup('org.parchmentmc.data') }
+    }
+    maven {
+        name = 'BlameJared'
+        url = 'https://maven.blamejared.com'
+    }
+}
+
+dependencies {
+    implementation("fuzs.forgeconfigapiport:forgeconfigapiport-common-neoforgeapi:${fcap_version}") { transitive = false }
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:${kotlinx_version}")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:${kotlinx_version}")
+    implementation("it.unimi.dsi:fastutil:${fastutil_version}")
+
+    api("org.jetbrains.kotlin:kotlin-reflect")
+    compileOnly("org.jetbrains:annotations:24.1.0")
+
+    implementation("com.electronwill.night-config:core:${nightconfig_version}")
+    implementation("com.electronwill.night-config:toml:${nightconfig_version}")
+    implementation("com.electronwill.night-config:json:${nightconfig_version}")
+    implementation("com.electronwill.night-config:yaml:${nightconfig_version}")
+
+    implementation("com.google.code.gson:gson:2.10.1")
+}
+
+['apiElements', 'runtimeElements', 'sourcesElements', 'javadocElements'].each { variant ->
+    configurations."$variant".outgoing {
+        capability("$group:${base.archivesName.get()}:$version")
+        capability("$group:$mod_id-${project.name}-${minecraft_version}:$version")
+        capability("$group:$mod_id:$version")
+    }
+    publishing.publications.configureEach {
+        suppressPomMetadataWarningsFor(variant)
+    }
+}
+
+sourcesJar {
+    from(rootProject.file('LICENSE')) {
+        rename { "${it}_${mod_name}" }
+    }
+}
+
+jar {
+    from(rootProject.file('LICENSE')) {
+        rename { "${it}_${mod_name}" }
+    }
+
+    manifest {
+        attributes([
+                'Specification-Title'   : mod_name,
+                'Specification-Vendor'  : mod_author,
+                'Specification-Version' : project.jar.archiveVersion,
+                'Implementation-Title'  : project.name,
+                'Implementation-Version': project.jar.archiveVersion,
+                'Implementation-Vendor' : mod_author,
+                'Built-On-Minecraft'    : minecraft_version
+        ])
+    }
+}
+
+processResources {
+    var expandProps = [
+            'version'                : version,
+            'group'                  : project.group,
+            'mod_name'               : mod_name,
+            'mod_author'             : mod_author,
+            'mod_id'                 : mod_id,
+            'description'            : project.description,
+            'license'                : license,
+            'credits'                : credits,
+            'java_version'           : java_version,
+            'source'                 : sources,
+            'issue_tracker'          : issue_tracker,
+            'minecraft_version'      : minecraft_version,
+            'minecraft_version_range': minecraft_version_range,
+            'fabric_version'         : fabric_version,
+            'fabric_loader_version'  : fabric_loader_version,
+            'fabric_kotlin_version'  : fabric_kotlin_version,
+            'neoforge_version'       : neoforge_version,
+            'kff_version_range'      : kff_version_range,
+    ]
+
+    filesMatching(['pack.mcmeta', 'fabric.mod.json', 'META-INF/neoforge.mods.toml', '*.mixins.json']) {
+        expand expandProps
+    }
+    inputs.properties(expandProps)
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            artifactId base.archivesName.get()
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url System.getenv('local_maven_url')
+        }
+    }
+}
